@@ -8,17 +8,26 @@ export function useTasks(query, status, page, pageSize) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
+    // Cancel the in-flight request when inputs change or the component unmounts, so a
+    // slow earlier response can never overwrite the results of a newer one.
+    const controller = new AbortController();
 
-    fetchTasks({ query, status, page, pageSize })
+    setLoading(true);
+    setError(null);
+
+    fetchTasks({ query, status, page, pageSize, signal: controller.signal })
       .then((data) => {
         setTasks(data.items);
         setTotal(data.total);
         setLoading(false);
       })
       .catch((err) => {
+        if (err.name === 'AbortError') return; // superseded by a newer request
         setError(err.message);
+        setLoading(false);
       });
+
+    return () => controller.abort();
   }, [query, status, page, pageSize]);
 
   return { tasks, total, loading, error };
